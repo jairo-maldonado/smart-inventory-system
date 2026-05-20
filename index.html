@@ -6,7 +6,9 @@
     <title>Smart Inventory Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen p-8">
+<body class="bg-gray-950 text-gray-100 min-h-screen p-8 relative">
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm"></div>
+
     <div class="max-w-5xl mx-auto">
         <header class="flex justify-between items-center mb-10 border-b border-gray-800 pb-5">
             <div>
@@ -51,9 +53,32 @@
     <script>
         const API_BASE_URL = "http://127.0.0.1:8000/products";
 
+        function showNotification(message, type = "success") {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            
+            const bgClass = type === "success" ? "bg-emerald-900 border-emerald-700 text-emerald-200" : "bg-red-900 border-red-700 text-red-200";
+            
+            toast.className = `${bgClass} border p-4 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 flex items-center justify-between text-sm font-medium`;
+            toast.innerText = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove("translate-y-2", "opacity-0");
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-2");
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
         async function loadProducts() {
             try {
                 const response = await fetch(API_BASE_URL);
+                if (!response.ok) throw new Error("Error en el servidor");
+                
                 const result = await response.json();
                 const grid = document.getElementById("products-grid");
                 grid.innerHTML = "";
@@ -96,7 +121,7 @@
                     });
                 }
             } catch (error) {
-                console.error("Error al conectar con la API:", error);
+                showNotification("Error de conexión con el servidor. Inténtelo más tarde.", "error");
             }
         }
 
@@ -110,19 +135,20 @@
             try {
                 const response = await fetch(API_BASE_URL, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ name, sku, price, stock, min_stock: 5 })
                 });
 
                 const result = await response.json();
                 if (response.status === 201 || result.status === "success") {
                     document.getElementById("product-form").reset();
+                    showNotification("¡Producto registrado exitosamente!");
                     loadProducts();
+                } else {
+                    throw new Error();
                 }
             } catch (error) {
-                console.error("Error al crear el producto:", error);
+                showNotification("No se pudo crear el producto. Verifique los datos.", "error");
             }
         }
 
@@ -130,18 +156,19 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/${productId}/stock`, {
                     method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ quantity: -1 })
                 });
                 
                 const result = await response.json();
                 if (result.status === "success") {
+                    showNotification("Venta registrada con éxito.");
                     loadProducts();
+                } else {
+                    throw new Error();
                 }
             } catch (error) {
-                console.error("Error al registrar la venta:", error);
+                showNotification("Error al procesar la venta en el servidor.", "error");
             }
         }
 
